@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Calculateur de repos — Maurice</title>
+<style>
+/* Polices système uniquement — aucune dépendance internet, fonctionne partout une fois partagé */
+
+:root{
+  --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Times New Roman', serif;
+  --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  --font-body: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --paper:#EEF1EE;
+  --paper-raised:#F8F9F7;
+  --ink:#1E2A2C;
+  --ink-soft:#5A6B6A;
+  --line:#C9D0C9;
+  --teal:#2E6F64;
+  --teal-soft:#DCE8E3;
+  --amber:#B9812C;
+  --amber-soft:#F3E6CE;
+  --rust:#A6402F;
+  --rust-soft:#F1DCD6;
+  --stamp:#8C3A2E;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  padding:32px 16px 64px;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-body);
+  display:flex;
+  justify-content:center;
+}
+.sheet{
+  width:100%;
+  max-width:840px;
+}
+header{
+  margin-bottom:28px;
+  border-bottom:2px solid var(--ink);
+  padding-bottom:16px;
+}
+header .eyebrow{
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:0.12em;
+  text-transform:uppercase;
+  color:var(--ink-soft);
+  margin-bottom:6px;
+}
+header h1{
+  font-family:var(--font-display);
+  font-weight:600;
+  font-size:28px;
+  margin:0 0 6px;
+  letter-spacing:-0.01em;
+}
+header p{
+  margin:0;
+  font-size:13.5px;
+  color:var(--ink-soft);
+  line-height:1.5;
+}
+
+.panel{
+  background:var(--paper-raised);
+  border:1px solid var(--line);
+  border-radius:4px;
+  padding:20px 22px;
+  margin-bottom:20px;
+}
+.panel h2{
+  font-family:var(--font-display);
+  font-size:15px;
+  font-weight:600;
+  margin:0 0 14px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.panel h2 .num{
+  font-family:var(--font-mono);
+  font-size:11px;
+  background:var(--ink);
+  color:var(--paper-raised);
+  padding:2px 6px;
+  border-radius:3px;
+}
+
+.config-row{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:16px;
+}
+.field label{
+  display:block;
+  font-size:11.5px;
+  color:var(--ink-soft);
+  margin-bottom:5px;
+  font-weight:500;
+}
+.field input{
+  width:100%;
+  font-family:var(--font-mono);
+  font-size:14px;
+  padding:8px 10px;
+  border:1px solid var(--line);
+  border-radius:3px;
+  background:#fff;
+  color:var(--ink);
+}
+.field .hint{
+  font-size:10.5px;
+  color:var(--ink-soft);
+  margin-top:4px;
+}
+
+.shift-row{
+  display:grid;
+  grid-template-columns:auto 1fr 1fr auto;
+  gap:12px;
+  align-items:end;
+  padding:12px 0;
+  border-bottom:1px dashed var(--line);
+}
+.shift-row:last-of-type{border-bottom:none;}
+.shift-row .tag{
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:var(--ink-soft);
+  padding-bottom:9px;
+  min-width:20px;
+}
+.shift-row input[type=datetime-local]{
+  width:100%;
+  font-family:var(--font-mono);
+  font-size:13px;
+  padding:7px 8px;
+  border:1px solid var(--line);
+  border-radius:3px;
+  background:#fff;
+  color:var(--ink);
+}
+.shift-row button.del{
+  background:none;
+  border:1px solid var(--line);
+  color:var(--rust);
+  width:30px;
+  height:30px;
+  border-radius:3px;
+  cursor:pointer;
+  font-size:15px;
+  line-height:1;
+}
+.shift-row button.del:hover{background:var(--rust-soft);}
+
+.add-btn, .calc-btn{
+  font-family:var(--font-mono);
+  font-size:12.5px;
+  border:1px solid var(--ink);
+  background:var(--paper-raised);
+  color:var(--ink);
+  padding:9px 16px;
+  border-radius:3px;
+  cursor:pointer;
+  margin-top:14px;
+}
+.add-btn:hover{background:var(--teal-soft);}
+.calc-btn{
+  background:var(--ink);
+  color:var(--paper-raised);
+  font-weight:600;
+}
+.calc-btn:hover{opacity:0.88;}
+
+/* Results timeline */
+.timeline{margin-top:4px;}
+.block{
+  border-left:3px solid var(--ink);
+  padding:8px 0 8px 16px;
+  position:relative;
+  margin-bottom:2px;
+}
+.block.work{border-left-color:var(--teal);}
+.block-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  font-family:var(--font-mono);
+  font-size:12.5px;
+}
+.block-head .dates{color:var(--ink-soft);}
+.block-head .dur{font-weight:600;}
+
+.gap{
+  margin:6px 0 6px 16px;
+  padding:10px 12px;
+  border-radius:3px;
+  font-size:12.5px;
+}
+.gap.ok{background:var(--teal-soft);border-left:3px solid var(--teal);}
+.gap.deficit{background:var(--rust-soft);border-left:3px solid var(--rust);}
+.gap-row{display:flex;justify-content:space-between;font-family:var(--font-mono);margin-bottom:2px;}
+.gap-label{font-family:var(--font-body);color:var(--ink-soft);}
+
+.summary{
+  margin-top:24px;
+  border:2px solid var(--ink);
+  border-radius:4px;
+  padding:22px;
+  background:var(--paper-raised);
+  position:relative;
+  overflow:hidden;
+}
+.summary .row{
+  display:flex;
+  justify-content:space-between;
+  font-family:var(--font-mono);
+  font-size:13px;
+  padding:6px 0;
+  border-bottom:1px dashed var(--line);
+}
+.summary .row:last-of-type{border-bottom:none;}
+.summary .row .lbl{color:var(--ink-soft);font-family:var(--font-body);}
+
+.stamp{
+  margin-top:18px;
+  display:inline-block;
+  border:2.5px solid var(--stamp);
+  color:var(--stamp);
+  border-radius:6px;
+  padding:14px 20px;
+  transform:rotate(-1.5deg);
+  font-family:var(--font-display);
+}
+.stamp .small{
+  font-family:var(--font-mono);
+  font-size:10.5px;
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+  margin-bottom:4px;
+}
+.stamp .big{
+  font-size:22px;
+  font-weight:700;
+}
+
+.note{
+  margin-top:18px;
+  font-size:11.5px;
+  color:var(--ink-soft);
+  line-height:1.6;
+  border-top:1px solid var(--line);
+  padding-top:14px;
+}
+.howto{
+  background:var(--teal-soft);
+  border-color:var(--teal);
+}
+.steps{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:grid;
+  gap:12px;
+}
+.steps li{
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+  font-size:13px;
+  line-height:1.5;
+}
+.step-n{
+  flex:0 0 auto;
+  width:24px;
+  height:24px;
+  border-radius:50%;
+  background:var(--teal);
+  color:#fff;
+  font-family:var(--font-mono);
+  font-size:12px;
+  font-weight:600;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin-top:1px;
+}
+.error-msg{
+  color:var(--rust);
+  font-family:var(--font-mono);
+  font-size:12px;
+  margin-top:10px;
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header>
+    <div class="eyebrow">Île Maurice — repos entre deux journées de travail</div>
+    <h1>Calculateur de repos</h1>
+    <p>Renseigne tes journées travaillées ci-dessous. L'outil calcule automatiquement le temps de repos entre chaque prise, compare au repos minimum, et détermine ta prochaine heure de reprise autorisée en tenant compte de tes horaires habituels.</p>
+  </header>
+
+  <div class="panel howto">
+    <h2>Mode d'emploi en 4 étapes</h2>
+    <ol class="steps">
+      <li>
+        <span class="step-n">1</span>
+        <div><strong>Règle tes paramètres</strong><br>
+        Indique tes horaires habituels (ex. 9h–17h) et le repos minimum entre deux journées (12h par défaut). Tu peux modifier ces valeurs.</div>
+      </li>
+      <li>
+        <span class="step-n">2</span>
+        <div><strong>Ajoute tes journées travaillées</strong><br>
+        Pour chaque jour, choisis la date et l'heure de <em>début</em> et de <em>fin</em>. Si ta journée finit après minuit, mets simplement la date du lendemain dans « Fin ». Utilise « + Ajouter un jour travaillé » pour en rajouter, et × pour en supprimer.</div>
+      </li>
+      <li>
+        <span class="step-n">3</span>
+        <div><strong>Clique sur « Calculer »</strong><br>
+        Le détail apparaît en dessous : heures travaillées, repos accordé entre chaque journée, et déficit éventuel (en rouge). Une prise qui touche un dimanche donne +1 jour de repos (🔶).</div>
+      </li>
+      <li>
+        <span class="step-n">4</span>
+        <div><strong>Lis ta reprise autorisée</strong><br>
+        Le tampon en bas du résultat indique le jour et l'heure à partir desquels tu peux reprendre, en tenant compte du repos dû, du déficit cumulé et de tes horaires habituels.</div>
+      </li>
+    </ol>
+  </div>
+
+  <div class="panel">
+    <h2><span class="num">01</span> Paramètres</h2>
+    <div class="config-row">
+      <div class="field">
+        <label>Début journée habituelle</label>
+        <input type="time" id="normalStart" value="09:00">
+      </div>
+      <div class="field">
+        <label>Fin journée habituelle</label>
+        <input type="time" id="normalEnd" value="17:00">
+        <div class="hint">Reprise possible seulement dans ce créneau</div>
+      </div>
+      <div class="field">
+        <label>Repos minimum / jour</label>
+        <input type="number" id="legalRest" value="12" min="0" step="0.25">
+        <div class="hint">12h par défaut</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2><span class="num">02</span> Journées travaillées</h2>
+    <div id="shiftList"></div>
+    <button class="add-btn" onclick="addRow()">+ Ajouter un jour travaillé</button>
+  </div>
+
+  <button class="calc-btn" onclick="compute()">Calculer le repos et la reprise →</button>
+  <div id="errorMsg" class="error-msg"></div>
+
+  <div id="results"></div>
+
+</div>
+
+<script>
+let rowId = 0;
+
+function addRow(startVal, endVal){
+  rowId++;
+  const div = document.createElement('div');
+  div.className = 'shift-row';
+  div.dataset.id = rowId;
+  div.innerHTML = `
+    <div class="tag">${document.querySelectorAll('.shift-row').length + 1}</div>
+    <div class="field"><label>Début</label><input type="datetime-local" class="startInput" value="${startVal||''}"></div>
+    <div class="field"><label>Fin</label><input type="datetime-local" class="endInput" value="${endVal||''}"></div>
+    <button class="del" onclick="delRow(${rowId})">×</button>
+  `;
+  document.getElementById('shiftList').appendChild(div);
+  renumber();
+}
+
+function delRow(id){
+  document.querySelector(`.shift-row[data-id="${id}"]`).remove();
+  renumber();
+}
+
+function renumber(){
+  document.querySelectorAll('.shift-row').forEach((row,i)=>{
+    row.querySelector('.tag').textContent = i+1;
+  });
+}
+
+function fmt(date){
+  const days=['dim.','lun.','mar.','mer.','jeu.','ven.','sam.'];
+  const d = String(date.getDate()).padStart(2,'0');
+  const m = String(date.getMonth()+1).padStart(2,'0');
+  const h = String(date.getHours()).padStart(2,'0');
+  const mi = String(date.getMinutes()).padStart(2,'0');
+  return `${days[date.getDay()]} ${d}/${m} ${h}h${mi}`;
+}
+
+function fmtHours(h){
+  const sign = h<0 ? '-' : '';
+  h = Math.abs(h);
+  const hh = Math.floor(h);
+  const mm = Math.round((h-hh)*60);
+  return `${sign}${hh}h${String(mm).padStart(2,'0')}`;
+}
+
+// Règle : dès qu'une partie du poste tombe un dimanche (peu importe le jour
+// de début du poste, qu'il soit contenu dans le dimanche ou qu'il déborde
+// avant/après), la personne a droit à 1 jour de repos en plus.
+function sundayBonusDays(shift){
+  let d = new Date(shift.start); d.setHours(0,0,0,0);
+  const endDay = new Date(shift.end); endDay.setHours(0,0,0,0);
+  while(d <= endDay){
+    if(d.getDay() === 0) return 24; // 0 = dimanche → +1 jour, en heures
+    d.setDate(d.getDate()+1);
+  }
+  return 0;
+}
+
+function requiredRestFor(shift, legalRest){
+  return legalRest + sundayBonusDays(shift);
+}
+
+function combine(dateObj, timeStr){
+  const [h,m] = timeStr.split(':').map(Number);
+  const d = new Date(dateObj);
+  d.setHours(h,m,0,0);
+  return d;
+}
+
+function compute(){
+  const errorEl = document.getElementById('errorMsg');
+  errorEl.textContent = '';
+  const resultsEl = document.getElementById('results');
+  resultsEl.innerHTML = '';
+
+  const normalStart = document.getElementById('normalStart').value;
+  const normalEnd = document.getElementById('normalEnd').value;
+  const legalRest = parseFloat(document.getElementById('legalRest').value);
+
+  const rows = document.querySelectorAll('.shift-row');
+  let shifts = [];
+  for(const row of rows){
+    const s = row.querySelector('.startInput').value;
+    const e = row.querySelector('.endInput').value;
+    if(!s || !e) continue;
+    const start = new Date(s);
+    const end = new Date(e);
+    if(end <= start){
+      errorEl.textContent = `Erreur : une fin de journée est avant ou égale au début (${s} → ${e}).`;
+      return;
+    }
+    shifts.push({start, end});
+  }
+
+  if(shifts.length === 0){
+    errorEl.textContent = 'Ajoute au moins une journée travaillée avec début et fin.';
+    return;
+  }
+
+  shifts.sort((a,b)=>a.start-b.start);
+
+  let html = '<div class="panel"><h2><span class="num">03</span> Détail</h2><div class="timeline">';
+  let cumulativeDeficit = 0;
+
+  shifts.forEach((shift, i)=>{
+    const workedH = (shift.end - shift.start)/3600000;
+    html += `
+      <div class="block work">
+        <div class="block-head">
+          <span class="dates">${fmt(shift.start)} → ${fmt(shift.end)}</span>
+          <span class="dur">${fmtHours(workedH)} travaillées</span>
+        </div>
+      </div>`;
+
+    if(i < shifts.length - 1){
+      const next = shifts[i+1];
+      const restH = (next.start - shift.end)/3600000;
+      const bonus = sundayBonusDays(shift);
+      const required = legalRest + bonus;
+      const deficit = Math.max(0, required - restH);
+      cumulativeDeficit += deficit;
+      const ok = deficit === 0;
+      html += `
+        <div class="gap ${ok?'ok':'deficit'}">
+          ${bonus>0?'<div class="gap-row"><span class="gap-label">🔶 Dimanche travaillé</span><span>+1 jour de repos</span></div>':''}
+          <div class="gap-row"><span class="gap-label">Repos accordé</span><span>${fmtHours(restH)}</span></div>
+          <div class="gap-row"><span class="gap-label">Repos dû${bonus>0?' (minimum + 1 jour)':' (minimum)'}</span><span>${fmtHours(required)}</span></div>
+          <div class="gap-row"><span class="gap-label">${ok?'Conforme':'Déficit'}</span><span>${ok?'✓ 0h00':fmtHours(deficit)}</span></div>
+        </div>`;
+    }
+  });
+  html += '</div></div>';
+  resultsEl.innerHTML = html;
+
+  // Compute return time
+  const lastShift = shifts[shifts.length-1];
+  const lastEnd = lastShift.end;
+  const lastBonus = sundayBonusDays(lastShift);
+  const totalOwed = legalRest + lastBonus + cumulativeDeficit;
+  const rawReturn = new Date(lastEnd.getTime() + totalOwed*3600000);
+
+  let day = new Date(rawReturn);
+  day.setHours(0,0,0,0);
+  let candidateStart = combine(day, normalStart);
+  let candidateEnd = combine(day, normalEnd);
+  let finalReturn;
+  let guard = 0;
+  while(guard < 30){
+    guard++;
+    if(rawReturn <= candidateStart){ finalReturn = candidateStart; break; }
+    if(rawReturn <= candidateEnd){ finalReturn = rawReturn; break; }
+    day.setDate(day.getDate()+1);
+    candidateStart = combine(day, normalStart);
+    candidateEnd = combine(day, normalEnd);
+  }
+
+  const actualRestGiven = (finalReturn - lastEnd)/3600000;
+
+  let summary = `
+    <div class="summary">
+      <div class="row"><span class="lbl">Fin de la dernière prise</span><span>${fmt(lastEnd)}</span></div>
+      <div class="row"><span class="lbl">Repos minimum</span><span>${fmtHours(legalRest)}</span></div>
+      ${lastBonus>0?`<div class="row"><span class="lbl">🔶 Bonus dimanche travaillé</span><span>+${fmtHours(lastBonus)}</span></div>`:''}
+      <div class="row"><span class="lbl">Déficit cumulé des jours précédents</span><span>${fmtHours(cumulativeDeficit)}</span></div>
+      <div class="row"><span class="lbl">Total de repos dû</span><span>${fmtHours(totalOwed)}</span></div>
+      <div class="row"><span class="lbl">Repos réellement obtenu si reprise ci-dessous</span><span>${fmtHours(actualRestGiven)}</span></div>
+      <div class="stamp">
+        <div class="small">Reprise autorisée</div>
+        <div class="big">${fmt(finalReturn)}</div>
+      </div>
+    </div>`;
+  resultsEl.innerHTML += summary;
+}
+
+// Démarrage : une seule ligne vide, aucun exemple pré-rempli
+addRow();
+</script>
+</body>
+</html>
