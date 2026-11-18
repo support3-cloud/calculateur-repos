@@ -160,6 +160,16 @@ header p{
   background:#fff;
   color:var(--ink);
 }
+.datewrap{position:relative;flex:1 1 120px;min-width:0;}
+.datewrap input.date{padding-right:30px;cursor:pointer;}
+.datewrap .cal{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  font-size:14px;line-height:1;pointer-events:none;
+}
+.datewrap input.native{
+  position:absolute;left:0;bottom:0;width:100%;height:1px;
+  opacity:0;pointer-events:none;border:0;padding:0;
+}
 .shift-row input.date.bad{border-color:var(--rust);background:var(--rust-soft);}
 .shift-row input[type=datetime-local]{
   width:100%;
@@ -344,7 +354,7 @@ header p{
       <li>
         <span class="step-n">2</span>
         <div><strong>Ajoute tes journées travaillées</strong><br>
-        Pour chaque jour, saisis la date (JJ/MM/AAAA) puis choisis l'heure de <em>début</em> et de <em>fin</em> (de 0 à 23h). Si ta journée finit après minuit (ex. 9h → 3h), tu peux garder la même date : l'outil comprend que la fin tombe le lendemain. Utilise « + Ajouter un jour travaillé » pour en rajouter, et × pour en supprimer.</div>
+        Pour chaque jour, clique sur la case date pour choisir dans le calendrier (ou tape-la en JJ/MM/AAAA), puis choisis l'heure de <em>début</em> et de <em>fin</em> (de 0 à 23h). Si ta journée finit après minuit (ex. 9h → 3h), tu peux garder la même date : l'outil comprend que la fin tombe le lendemain. Utilise « + Ajouter un jour travaillé » pour en rajouter, et × pour en supprimer.</div>
       </li>
       <li>
         <span class="step-n">3</span>
@@ -440,6 +450,44 @@ function parseDate(str){
   return dt;
 }
 
+function dateField(cls){
+  return `<div class="datewrap">
+    <input type="text" class="date ${cls}" inputmode="numeric" placeholder="JJ/MM/AAAA" maxlength="10"
+      oninput="maskDate(this);dateTyped(this)" onclick="openCal(this)">
+    <span class="cal" aria-hidden="true">📅</span>
+    <input type="date" class="native" tabindex="-1" aria-hidden="true" onchange="calPicked(this)">
+  </div>`;
+}
+
+function dateTyped(input){
+  if(input.classList.contains('startDate')) syncEnd(input);
+  else input.dataset.touched=1;
+}
+
+// Ouvre le calendrier natif ; la date choisie est réécrite en JJ/MM/AAAA
+function openCal(input){
+  const native=input.parentElement.querySelector('.native');
+  const d=parseDate(input.value);
+  if(d){
+    native.value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  } else {
+    native.value='';
+  }
+  try{
+    if(native.showPicker) native.showPicker();
+    else { native.style.pointerEvents='auto'; native.focus(); native.click(); native.style.pointerEvents='none'; }
+  }catch(e){}
+}
+
+function calPicked(native){
+  if(!native.value) return;
+  const [y,m,d]=native.value.split('-');
+  const input=native.parentElement.querySelector('.date');
+  input.value=`${d}/${m}/${y}`;
+  input.classList.remove('bad');
+  dateTyped(input);
+}
+
 function addRow(){
   rowId++;
   const div = document.createElement('div');
@@ -448,9 +496,9 @@ function addRow(){
   div.innerHTML = `
     <div class="tag">${document.querySelectorAll('.shift-row').length + 1}</div>
     <div class="field"><label>Début (JJ/MM/AAAA, heure 0–23)</label>
-      <div class="dt"><input type="text" class="date startDate" inputmode="numeric" placeholder="JJ/MM/AAAA" maxlength="10" oninput="maskDate(this);syncEnd(this)">${timeSelects('s',9,0)}</div></div>
+      <div class="dt">${dateField('startDate')}${timeSelects('s',9,0)}</div></div>
     <div class="field"><label>Fin (laisser la date vide = même jour)</label>
-      <div class="dt"><input type="text" class="date endDate" inputmode="numeric" placeholder="JJ/MM/AAAA" maxlength="10" oninput="maskDate(this);this.dataset.touched=1">${timeSelects('e',17,0)}</div></div>
+      <div class="dt">${dateField('endDate')}${timeSelects('e',17,0)}</div></div>
     <button class="del" onclick="delRow(${rowId})">×</button>
   `;
   document.getElementById('shiftList').appendChild(div);
