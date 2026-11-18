@@ -146,8 +146,12 @@ header p{
   border:1px solid var(--line);border-radius:3px;background:#fff;color:var(--ink);
 }
 @media (max-width:640px){
-  .shift-row{grid-template-columns:auto 1fr auto;}
-  .shift-row .field:nth-of-type(2){grid-column:2 / 3;}
+  .shift-row{display:block;position:relative;padding:14px 38px 6px 0;}
+  .shift-row .tag{padding:0 0 4px;}
+  .shift-row .field{margin-bottom:10px;}
+  .shift-row button.del{position:absolute;top:14px;right:0;}
+  .dt{flex-wrap:wrap;}
+  .dt .datewrap{flex:1 1 100%;}
   .config-row{grid-template-columns:1fr;}
 }
 .shift-row input.date{
@@ -166,10 +170,27 @@ header p{
   position:absolute;right:6px;top:50%;transform:translateY(-50%);
   font-size:14px;line-height:1;pointer-events:none;
 }
-.datewrap input.native{
-  position:absolute;left:0;bottom:0;width:100%;height:1px;
-  opacity:0;pointer-events:none;border:0;padding:0;
+.cal-pop{
+  display:none;position:absolute;z-index:50;width:268px;
+  background:var(--paper-raised);border:1px solid var(--ink);border-radius:4px;
+  padding:10px;box-shadow:0 6px 18px rgba(30,42,44,.18);
 }
+.cal-head{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:8px;}
+.cal-head span{font-family:var(--font-display);font-weight:600;font-size:13.5px;flex:1;text-align:center;}
+.cal-head button{
+  background:#fff;border:1px solid var(--line);border-radius:3px;width:28px;height:28px;
+  cursor:pointer;color:var(--ink);font-size:15px;line-height:1;
+}
+.cal-head button:hover{background:var(--teal-soft);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.cal-dow{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-soft);text-align:center;padding:2px 0;}
+.cal-day{
+  background:none;border:1px solid transparent;border-radius:3px;height:30px;
+  font-family:var(--font-mono);font-size:12.5px;color:var(--ink);cursor:pointer;
+}
+.cal-day:hover{background:var(--teal-soft);}
+.cal-day.today{border-color:var(--amber);}
+.cal-day.sel{background:var(--teal);color:#fff;}
 .shift-row input.date.bad{border-color:var(--rust);background:var(--rust-soft);}
 .shift-row input[type=datetime-local]{
   width:100%;
@@ -399,6 +420,7 @@ header p{
   <div id="errorMsg" class="error-msg"></div>
 
   <div id="results"></div>
+  <div id="calPop" class="cal-pop"></div>
 
 </div>
 
@@ -455,7 +477,6 @@ function dateField(cls){
     <input type="text" class="date ${cls}" inputmode="numeric" placeholder="JJ/MM/AAAA" maxlength="10"
       oninput="maskDate(this);dateTyped(this)" onclick="openCal(this)">
     <span class="cal" aria-hidden="true">📅</span>
-    <input type="date" class="native" tabindex="-1" aria-hidden="true" onchange="calPicked(this)">
   </div>`;
 }
 
@@ -464,29 +485,79 @@ function dateTyped(input){
   else input.dataset.touched=1;
 }
 
-// Ouvre le calendrier natif ; la date choisie est réécrite en JJ/MM/AAAA
+// Calendrier maison (fonctionne sur tous les navigateurs et téléphones)
+const MOIS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+let calTarget=null, calY=0, calM=0;
+
 function openCal(input){
-  const native=input.parentElement.querySelector('.native');
-  const d=parseDate(input.value);
-  if(d){
-    native.value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  } else {
-    native.value='';
-  }
-  try{
-    if(native.showPicker) native.showPicker();
-    else { native.style.pointerEvents='auto'; native.focus(); native.click(); native.style.pointerEvents='none'; }
-  }catch(e){}
+  calTarget=input;
+  const d=parseDate(input.value) || new Date();
+  calY=d.getFullYear(); calM=d.getMonth();
+  renderCal();
+  const pop=document.getElementById('calPop');
+  pop.style.display='block';
+  const r=input.getBoundingClientRect();
+  const w=pop.offsetWidth;
+  let left=r.left+window.scrollX;
+  left=Math.min(left, window.scrollX+document.documentElement.clientWidth-w-8);
+  pop.style.left=Math.max(8,left)+'px';
+  pop.style.top=(r.bottom+window.scrollY+4)+'px';
 }
 
-function calPicked(native){
-  if(!native.value) return;
-  const [y,m,d]=native.value.split('-');
-  const input=native.parentElement.querySelector('.date');
-  input.value=`${d}/${m}/${y}`;
+function closeCal(){
+  const pop=document.getElementById('calPop');
+  if(pop) pop.style.display='none';
+  calTarget=null;
+}
+
+function calNav(dm, dy){
+  calM+=dm; calY+=dy;
+  if(calM<0){calM=11;calY--;}
+  if(calM>11){calM=0;calY++;}
+  renderCal();
+}
+
+function calPick(day){
+  if(!calTarget) return;
+  const input=calTarget;
+  input.value=String(day).padStart(2,'0')+'/'+String(calM+1).padStart(2,'0')+'/'+calY;
   input.classList.remove('bad');
   dateTyped(input);
+  closeCal();
 }
+
+function renderCal(){
+  const pop=document.getElementById('calPop');
+  const first=new Date(calY,calM,1);
+  const offset=(first.getDay()+6)%7; // semaine commençant le lundi
+  const nDays=new Date(calY,calM+1,0).getDate();
+  const sel=calTarget?parseDate(calTarget.value):null;
+  const today=new Date();
+  let h=`<div class="cal-head">
+    <button type="button" onclick="calNav(0,-1)" aria-label="Année précédente">«</button>
+    <button type="button" onclick="calNav(-1,0)" aria-label="Mois précédent">‹</button>
+    <span>${MOIS[calM]} ${calY}</span>
+    <button type="button" onclick="calNav(1,0)" aria-label="Mois suivant">›</button>
+    <button type="button" onclick="calNav(0,1)" aria-label="Année suivante">»</button>
+  </div><div class="cal-grid">`;
+  ['L','M','M','J','V','S','D'].forEach(x=>h+=`<div class="cal-dow">${x}</div>`);
+  for(let i=0;i<offset;i++) h+='<div></div>';
+  for(let d=1;d<=nDays;d++){
+    const isSel=sel&&sel.getFullYear()===calY&&sel.getMonth()===calM&&sel.getDate()===d;
+    const isToday=today.getFullYear()===calY&&today.getMonth()===calM&&today.getDate()===d;
+    h+=`<button type="button" class="cal-day${isSel?' sel':''}${isToday?' today':''}" onclick="calPick(${d})">${d}</button>`;
+  }
+  h+='</div>';
+  pop.innerHTML=h;
+}
+
+document.addEventListener('click',e=>{
+  const pop=document.getElementById('calPop');
+  if(!pop||pop.style.display!=='block') return;
+  if(e.composedPath().includes(pop)||e.target===calTarget) return;
+  closeCal();
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeCal(); });
 
 function addRow(){
   rowId++;
